@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Student Management System</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app-container">
+
+    <header class="app-header">
+        <h1>Student Management System</h1>
+        <div id="user-info" class="user-info hidden">
+            Logged in as: <span id="current-user"></span> 
+            (<span id="current-role"></span>)
+            <button id="logout-btn" class="btn btn-outline">Logout</button>
+        </div>
+    </header>
+
+    <section id="login-section" class="card">
+        <h2>Login</h2>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input id="username" name="username" type="text" required />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required />
+            </div>
+
+            <button type="submit" class="btn">Login</button>
+
+            <p class="hint">
+                Demo credentials:<br />
+                admin / admin123<br />
+                staff / staff123<br />
+                guest / guest123
+            </p>
+        </form>
+        <p id="login-message" class="error-msg"></p>
+    </section>
+
+    <!-- MAIN APP SECTION -->
+    <section id="main-section" class="hidden main-layout">
+
+        <!-- SIDEBAR MENU -->
+        <nav class="sidebar card">
+            <h3 id="menu-title">Menu</h3>
+            <ul id="menu-list">
+                <!-- Buttons will be inserted via JS -->
+            </ul>
+        </nav>
+
+        <!-- CONTENT AREA -->
+        <section class="content card">
+            <h2 id="content-title">Welcome</h2>
+            <div id="content-body">
+                <p>Select an option from the menu.</p>
+            </div>
+        </section>
+
+    </section>
+
+</div>
+
+<script>
+/*
+    Simple in-browser version of your C student management system.
+
+    Credentials (hard-coded):
+      admin / admin123  -> role: admin
+      staff / staff123  -> role: staff
+      guest / guest123  -> role: guest
+*/
+
+// ---------- DATA ----------
+
+// In-memory list of students
+// { roll: number, name: string, mark: number }
+let students = [];
+
+// Hardcoded credentials
+const credentials = [
+    { username: "admin", password: "admin123", role: "admin" },
+    { username: "staff", password: "staff123", role: "staff" },
+    { username: "guest", password: "guest123", role: "guest" }
+];
+
+let currentUser = null;
+let currentRole = null;
+
+// ---------- DOM ELEMENTS ----------
+const loginSection  = document.getElementById("login-section");
+const mainSection   = document.getElementById("main-section");
+const loginForm     = document.getElementById("login-form");
+const loginMessage  = document.getElementById("login-message");
+const userInfoBox   = document.getElementById("user-info");
+const currentUserEl = document.getElementById("current-user");
+const currentRoleEl = document.getElementById("current-role");
+const logoutBtn     = document.getElementById("logout-btn");
+
+const menuList      = document.getElementById("menu-list");
+const menuTitle     = document.getElementById("menu-title");
+const contentTitle  = document.getElementById("content-title");
+const contentBody   = document.getElementById("content-body");
+
+// ---------- HELPERS ----------
+function show(element) {
+    element.classList.remove("hidden");
+}
+function hide(element) {
+    element.classList.add("hidden");
+}
+function setContent(title, html) {
+    contentTitle.textContent = title;
+    contentBody.innerHTML = html;
+}
+
+// Re-render the menu according to role
+function renderMenu() {
+    menuList.innerHTML = "";
+
+    const menuItemsByRole = {
+        admin: [
+            { key: "add", label: "Add Student" },
+            { key: "display", label: "Display Students" },
+            { key: "search", label: "Search Student" },
+            { key: "update", label: "Update Student" },
+            { key: "delete", label: "Delete Student" }
+        ],
+        staff: [
+            { key: "add", label: "Add Student" },
+            { key: "display", label: "Display Students" },
+            { key: "search", label: "Search Student" },
+            { key: "update", label: "Update Student" }
+        ],
+        guest: [
+            { key: "display", label: "Display Students" },
+            { key: "search", label: "Search Student" }
+        ]
+    };
+
+    const items = menuItemsByRole[currentRole] || [];
+    items.forEach(item => {
+        const li = document.createElement("li");
+        const btn = document.createElement("button");
+        btn.className = "menu-btn";
+        btn.textContent = item.label;
+        btn.dataset.action = item.key;
+        btn.addEventListener("click", handleMenuClick);
+        li.appendChild(btn);
+        menuList.appendChild(li);
+    });
+
+    menuTitle.textContent = currentRole.toUpperCase() + " MENU";
+}
+
+// ---------- LOGIN ----------
+loginForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const username = loginForm.username.value.trim();
+    const password = loginForm.password.value.trim();
+
+    const user = credentials.find(
+        c => c.username === username && c.password === password
+    );
+
+    if (!user) {
+        loginMessage.textContent = "Invalid login!";
+        return;
+    }
+
+    currentUser = user.username;
+    currentRole = user.role;
+    loginMessage.textContent = "";
+
+    // Show main app
+    currentUserEl.textContent = currentUser;
+    currentRoleEl.textContent = currentRole;
+    show(userInfoBox);
+
+    hide(loginSection);
+    show(mainSection);
+
+    renderMenu();
+    setContent("Welcome", `<p>You are logged in as <strong>${currentRole}</strong>. Choose an option from the menu.</p>`);
+});
+
+// Logout
+logoutBtn.addEventListener("click", function () {
+    currentUser = null;
+    currentRole = null;
+    hide(userInfoBox);
+
+    show(loginSection);
+    hide(mainSection);
+
+    loginForm.reset();
+    loginMessage.textContent = "";
+});
+
+// ---------- MENU ACTIONS ----------
+function handleMenuClick(e) {
+    const action = e.target.dataset.action;
+    if (!action) return;
+
+    switch (action) {
+        case "add": renderAddForm(); break;
+        case "display": renderDisplay(); break;
+        case "search": renderSearchForm(); break;
+        case "update": renderUpdateForm(); break;
+        case "delete": renderDeleteForm(); break;
+        default: break;
+    }
+}
+
+// ---------- RENDER FORMS / VIEWS ----------
+function renderAddForm() {
+    setContent("Add Student", `
+        <form id="add-form">
+            <div class="form-group">
+                <label for="roll">Roll No.</label>
+                <input id="roll" name="roll" type="number" required />
+            </div>
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input id="name" name="name" type="text" required />
+            </div>
+            <div class="form-group">
+                <label for="mark">Mark</label>
+                <input id="mark" name="mark" type="number" step="0.01" required />
+            </div>
+            <button type="submit" class="btn">Add</button>
+        </form>
+        <p id="add-msg" class="info-msg"></p>
+    `);
+
+    const form = document.getElementById("add-form");
+    const msg  = document.getElementById("add-msg");
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const roll = parseInt(form.roll.value, 10);
+        const name = form.name.value.trim();
+        const mark = parseFloat(form.mark.value);
+
+        if (students.some(s => s.roll === roll)) {
+            msg.textContent = "Roll number already exists!";
+            msg.className = "error-msg";
+            return;
+        }
+
+        students.push({ roll, name, mark });
+        msg.textContent = "Student added!";
+        msg.className = "success-msg";
+        form.reset();
+    });
+}
+
+function renderDisplay() {
+    if (students.length === 0) {
+        setContent("Display Students", `<p>No students found.</p>`);
+        return;
+    }
+
+    let rows = students
+        .map(s => `
+            <tr>
+                <td>${s.roll}</td>
+                <td>${s.name}</td>
+                <td>${s.mark.toFixed(2)}</td>
+            </tr>
+        `)
+        .join("");
+
+    setContent("Display Students", `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Roll</th>
+                    <th>Name</th>
+                    <th>Mark</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `);
+}
+
+function renderSearchForm() {
+    setContent("Search Student", `
+        <form id="search-form">
+            <div class="form-group">
+                <label for="search-roll">Roll No.</label>
+                <input id="search-roll" name="search-roll" type="number" required />
+            </div>
+            <button type="submit" class="btn">Search</button>
+        </form>
+        <div id="search-result"></div>
+    `);
+
+    const form = document.getElementById("search-form");
+    const result = document.getElementById("search-result");
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const roll = parseInt(form["search-roll"].value, 10);
+        const student = students.find(s => s.roll === roll);
+
+        if (!student) {
+            result.innerHTML = `<p class="error-msg">Student not found!</p>`;
+        } else {
+            result.innerHTML = `
+                <p class="success-msg">
+                    Found: Roll ${student.roll}, Name: ${student.name},
+                    Mark: ${student.mark.toFixed(2)}
+                </p>
+            `;
+        }
+    });
+}
+
+function renderUpdateForm() {
+    setContent("Update Student", `
+        <form id="update-form">
+            <div class="form-group">
+                <label for="update-roll">Roll No. to Update</label>
+                <input id="update-roll" name="update-roll" type="number" required />
+            </div>
+            <div class="form-group">
+                <label for="new-name">New Name</label>
+                <input id="new-name" name="new-name" type="text" placeholder="Leave blank to keep same" />
+            </div>
+            <div class="form-group">
+                <label for="new-mark">New Mark</label>
+                <input id="new-mark" name="new-mark" type="number" step="0.01" placeholder="Leave blank to keep same" />
+            </div>
+            <button type="submit" class="btn">Update</button>
+        </form>
+        <p id="update-msg" class="info-msg"></p>
+    `);
+
+    const form = document.getElementById("update-form");
+    const msg  = document.getElementById("update-msg");
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const roll = parseInt(form["update-roll"].value, 10);
+        let student = students.find(s => s.roll === roll);
+
+        if (!student) {
+            msg.textContent = "Roll not found!";
+            msg.className = "error-msg";
+            return;
+        }
+
+        const newName = form["new-name"].value.trim();
+        const newMarkStr = form["new-mark"].value;
+
+        if (newName !== "") {
+            student.name = newName;
+        }
+
+        if (newMarkStr !== "") {
+            const newMark = parseFloat(newMarkStr);
+            if (!isNaN(newMark)) {
+                student.mark = newMark;
+            }
+        }
+
+        msg.textContent = "Student updated!";
+        msg.className = "success-msg";
+        form.reset();
+    });
+}
+
+function renderDeleteForm() {
+    setContent("Delete Student", `
+        <form id="delete-form">
+            <div class="form-group">
+                <label for="delete-roll">Roll No. to Delete</label>
+                <input id="delete-roll" name="delete-roll" type="number" required />
+            </div>
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+        <p id="delete-msg" class="info-msg"></p>
+    `);
+
+    const form = document.getElementById("delete-form");
+    const msg  = document.getElementById("delete-msg");
+
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const roll = parseInt(form["delete-roll"].value, 10);
+
+        const index = students.findIndex(s => s.roll === roll);
+        if (index === -1) {
+            msg.textContent = "Roll not found!";
+            msg.className = "error-msg";
+            return;
+        }
+
+        students.splice(index, 1);
+        msg.textContent = "Student deleted!";
+        msg.className = "success-msg";
+        form.reset();
+    });
+}
+</script>
+</body>
+</html>
