@@ -54,9 +54,9 @@ Branch: main Folder: /root
 
 Save
 
-Your live site appears at:
+Live site appears at:
 
-https://your-username.github.io/student-management-web/
+https://ayushiyadav8421.github.io/Student-Record-Management-System/
 
 🔑 Demo Credentials Username Password Role admin admin123 Admin staff staff123 Staff guest guest123 Guest
 
